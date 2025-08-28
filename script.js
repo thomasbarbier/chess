@@ -14,6 +14,7 @@ let selectedSquare = null; // case sélectionnée
 let nextPlayer = "W"; // joueur qui doit jouer, les blancs commencent
 let nextLegalMoves = []; // prochain coup pour la case sélectionnée
 let nextSpecialMoves = []; // prochain coup pour roque ou en passant
+let nextLegalMovesWhenCheck = null;
 let lastMove = null; // dernier coup joué
 let isLastMoveDoubleJump = false;
 let takenPieces = [];
@@ -23,6 +24,7 @@ let blackKingHasMoved = false;
 let whiteKingPos = { row: 7, col: 4 };
 let blackKingPos = { row: 0, col: 4 };
 let attackedSquares = [];
+let attackerBoard = null;
 
 let rookHasMoved = { a1: false, h1: false, a8: false, h8: false };
 let whitePieces = ["♖", "♘", "♗", "♕", "♔", "♙"];
@@ -74,12 +76,6 @@ function createBoard() {
         label.classList.add("label");
         board.appendChild(label);
     });
-
-    // TODO affichage des pièces mangées
-
-    // TODO affichage du joueur à qui c'est le tour 
-
-    // TODO affichage check and checkmate and stalemate
 }
 
 function handleSquareClick(row, col) {
@@ -90,11 +86,17 @@ function handleSquareClick(row, col) {
             selectSquare(row, col);
             console.log("Sélectionné :", boardState[row][col], row, col);
 
-            // cherche coups possibles et highlights 
-            nextLegalMoves = getLegalMoves(row, col);
-            // recherche coups spéciaux possibles
-            nextSpecialMoves = getSpecialMoves(row, col);
-            nextSpecialMoves.forEach((m) => nextLegalMoves.push(m.destination));
+            // si le roi est en echec on a déjà calculé les prochains move possible
+            // stocke dans nextLegalMovesToAvoidCheck
+            if (!checkedKing) {
+                // cherche coups possibles et highlights 
+                nextLegalMoves = getLegalMoves(row, col);
+                // recherche coups spéciaux possibles
+                nextSpecialMoves = getSpecialMoves(row, col);
+                nextSpecialMoves.forEach((m) => nextLegalMoves.push(m.destination));
+            } else {
+                nextLegalMoves = nextLegalMovesWhenCheck[row][col];
+            }
             highlightSquares(nextLegalMoves);
         }
     } else {
@@ -134,7 +136,7 @@ function handleSquareClick(row, col) {
             } else if (specialMove.type === "R") {
                 // roque
                 console.log("On fait un roque !");
-                boardState[row][col]= piece; // on bouge le roi
+                boardState[row][col] = piece; // on bouge le roi
                 boardState[specialMove.rookDestination.row][specialMove.rookDestination.col] = boardState[specialMove.rookOrigin.row][specialMove.rookOrigin.col];
                 boardState[specialMove.rookOrigin.row][specialMove.rookOrigin.col] = "";
                 boardState[from.row][from.col] = "";
@@ -153,7 +155,9 @@ function handleSquareClick(row, col) {
         createBoard(); // re-render
 
         //check if mate or check
-        attackedSquares = getAttackedSquaresByPlayer(nextPlayer);
+        const values = getAttackedSquaresByPlayer(nextPlayer)
+        attackedSquares = values[0];
+        attackerBoard = values[1];
         //changement de joueur après le coup
         changeTurn();
         const isKingCheck = attackedSquares.filter((pos) => getPieceType(boardState[pos.row][pos.col]) === "K" && getPieceOwner(boardState[pos.row][pos.col]) === nextPlayer);
@@ -161,6 +165,9 @@ function handleSquareClick(row, col) {
             console.log("CHECK !!!", isKingCheck);
             checkedKing = true;
             colorInRed(isKingCheck[0].row, isKingCheck[0].col);
+            // TODO check if mate 
+            const getLegalMTAC = getLegalMovesToAvoidCheck({row:isKingCheck[0].row, col:isKingCheck[0].col}, attackerBoard);
+            nextLegalMovesWhenCheck = getLegalMTAC[0];
         }
 
     }
@@ -260,7 +267,8 @@ function getLegalMoves(row, col, board = boardState) {
         case "♚":
             // check if not checked
             directionsQ.forEach((d) => moves.push(movePiece({ row, col }, d[0], d[1])));
-            return moves.filter((p) => isLegal(p, piece, board));
+            return moves.filter((p) => isLegal(p, piece, board))
+                .filter((p) => !attackedSquares.some((p2) => p2.row === p.row && p2.col === p.col));
         default:
             console.log("Erreur, pièce inconnue");
             return [];
@@ -277,6 +285,18 @@ function getLegalMoves(row, col, board = boardState) {
     }
 }
 
+function getLegalMovesToAvoidCheck(checkedKingPosition, aBoard) {
+    const coupPossible = Array(8).fill(Array(8).fill([]));
+    // si le roi est attaqué qu'une fois 
+    if (aBoard[checkedKingPosition.row][checkedKingPosition.col].length === 1){
+
+    } else {
+        // si deux fois le roi est obligé de bouger
+        coupPossible[checkedKingPosition.row][checkedKingPosition.col] = getLegalMoves(checkedKingPosition.row,checkedKingPosition.col);
+    }
+    return [coupPossible, false];
+
+}
 function getAttackedSquaresByAPiece(row, col, board = boardState) {
     const piece = board[row][col];
     switch (piece) {
@@ -300,15 +320,18 @@ function getAttackedSquaresByAPiece(row, col, board = boardState) {
 
 function getAttackedSquaresByPlayer(player, board = boardState) {
     var attackedSquaresList = [];
+    var attackerBoard = Array(8).fill(Array(8).fill([]));
     for (let rx = 0; rx < 8; rx++) {
-        for (cx = 0; cx < 8; cx++) {
+        for (let cx = 0; cx < 8; cx++) {
             if (getPieceOwner(board[rx][cx]) === player) {
-                attackedSquaresList = attackedSquaresList.concat(getAttackedSquaresByAPiece(rx, cx, board));
+                const sq = getAttackedSquaresByAPiece(rx, cx, board)
+                attackedSquaresList = attackedSquaresList.concat(sq);
+                sq.forEach((s) => attackerBoard[s.row][s.col].push({ row: rx, col: cx }));
             }
         }
     }
     // pas d'élimination des doublons car pourra être utile pour bot 
-    return attackedSquaresList;
+    return [attackedSquaresList, attackerBoard];
 }
 
 
@@ -337,16 +360,16 @@ function getSpecialMoves(row, col) {
                 var ret = [];
                 // grand roque
                 if (!rookHasMoved.a1 && boardState[7][1] === "" && boardState[7][2] === "" && boardState[7][3] === ""
-                    && !attackedSquares.some((p) => p.row === 7 && [1,2,3].includes(p.col))
+                    && !attackedSquares.some((p) => p.row === 7 && [1, 2, 3].includes(p.col))
                 ) {
                     console.log("Grand roque possible !");
-                    ret.push({type: "R", destination: {row:7,col:2}, rookDestination: {row:7,col:3}, rookOrigin: {row:7,col:0}});
+                    ret.push({ type: "R", destination: { row: 7, col: 2 }, rookDestination: { row: 7, col: 3 }, rookOrigin: { row: 7, col: 0 } });
                 }
                 // petit roque
                 if (!rookHasMoved.a8 && boardState[7][5] === "" && boardState[7][6] === ""
-                    && !attackedSquares.some((p) => p.row === 7 && [5,6].includes(p.col))) {
+                    && !attackedSquares.some((p) => p.row === 7 && [5, 6].includes(p.col))) {
                     console.log("Petit roque possible !");
-                    ret.push({type: "R", destination: {row:7,col:6}, rookDestination: {row:7,col:5}, rookOrigin: {row:7,col:7}});
+                    ret.push({ type: "R", destination: { row: 7, col: 6 }, rookDestination: { row: 7, col: 5 }, rookOrigin: { row: 7, col: 7 } });
                 }
                 return ret;
             }
@@ -357,16 +380,16 @@ function getSpecialMoves(row, col) {
                 var ret = [];
                 // grand roque
                 if (!rookHasMoved.h1 && boardState[0][1] === "" && boardState[0][2] === "" && boardState[0][3] === ""
-                    && !attackedSquares.some((p) => p.row === 0 && [1,2,3].includes(p.col))
+                    && !attackedSquares.some((p) => p.row === 0 && [1, 2, 3].includes(p.col))
                 ) {
                     console.log("Grand roque possible !");
-                    ret.push({type: "R", destination: {row:0,col:2}, rookDestination: {row:0,col:3}, rookOrigin: {row:0,col:0}});
+                    ret.push({ type: "R", destination: { row: 0, col: 2 }, rookDestination: { row: 0, col: 3 }, rookOrigin: { row: 0, col: 0 } });
                 }
                 // petit roque
                 if (!rookHasMoved.h8 && boardState[0][5] === "" && boardState[0][6] === ""
-                    && !attackedSquares.some((p) => p.row === 0 && [5,6].includes(p.col))) {
+                    && !attackedSquares.some((p) => p.row === 0 && [5, 6].includes(p.col))) {
                     console.log("Petit roque possible !");
-                    ret.push({type: "R", destination: {row:0,col:6}, rookDestination: {row:0,col:5}, rookOrigin: {row:0,col:7}});
+                    ret.push({ type: "R", destination: { row: 0, col: 6 }, rookDestination: { row: 0, col: 5 }, rookOrigin: { row: 0, col: 7 } });
                 }
                 return ret;
             }
@@ -467,9 +490,9 @@ function isPinned(row, col, board = boardState) {
             }
         }
     } else if ((r - c) === (row - col)) { // diag 1
-
+        //TODO
     } else if ((r + c) === (row + col)) { // diag 2
-
+        // TODO
     }
 
     return [];
