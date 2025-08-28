@@ -22,6 +22,7 @@ let whiteKingHasMoved = false;
 let blackKingHasMoved = false;
 let whiteKingPos = { row: 7, col: 4 };
 let blackKingPos = { row: 0, col: 4 };
+let attackedSquares = [];
 
 let rookHasMoved = { a1: false, h1: false, a8: false, h8: false };
 let whitePieces = ["♖", "♘", "♗", "♕", "♔", "♙"];
@@ -132,6 +133,11 @@ function handleSquareClick(row, col) {
                 boardState[lastMove.row][lastMove.col] = "";
             } else if (specialMove.type === "R") {
                 // roque
+                console.log("On fait un roque !");
+                boardState[row][col]= piece; // on bouge le roi
+                boardState[specialMove.rookDestination.row][specialMove.rookDestination.col] = boardState[specialMove.rookOrigin.row][specialMove.rookOrigin.col];
+                boardState[specialMove.rookOrigin.row][specialMove.rookOrigin.col] = "";
+                boardState[from.row][from.col] = "";
             }
         } else {
             // déplace la pièce
@@ -147,12 +153,13 @@ function handleSquareClick(row, col) {
         createBoard(); // re-render
 
         //check if mate or check
-        const attackedSquares = getAttackedSquaresByPlayer(nextPlayer);
+        attackedSquares = getAttackedSquaresByPlayer(nextPlayer);
         //changement de joueur après le coup
         changeTurn();
         const isKingCheck = attackedSquares.filter((pos) => getPieceType(boardState[pos.row][pos.col]) === "K" && getPieceOwner(boardState[pos.row][pos.col]) === nextPlayer);
         if (isKingCheck.length != 0) {
             console.log("CHECK !!!", isKingCheck);
+            checkedKing = true;
             colorInRed(isKingCheck[0].row, isKingCheck[0].col);
         }
 
@@ -292,16 +299,16 @@ function getAttackedSquaresByAPiece(row, col, board = boardState) {
 }
 
 function getAttackedSquaresByPlayer(player, board = boardState) {
-    var attackedSquares = [];
+    var attackedSquaresList = [];
     for (let rx = 0; rx < 8; rx++) {
         for (cx = 0; cx < 8; cx++) {
             if (getPieceOwner(board[rx][cx]) === player) {
-                attackedSquares = attackedSquares.concat(getAttackedSquaresByAPiece(rx, cx, board));
+                attackedSquaresList = attackedSquaresList.concat(getAttackedSquaresByAPiece(rx, cx, board));
             }
         }
     }
     // pas d'élimination des doublons car pourra être utile pour bot 
-    return attackedSquares;
+    return attackedSquaresList;
 }
 
 
@@ -323,7 +330,46 @@ function getSpecialMoves(row, col) {
                 }
             }
             break;
-        // TODO roque
+        case "♔":
+            if (whiteKingHasMoved) {
+                return [];
+            } else {
+                var ret = [];
+                // grand roque
+                if (!rookHasMoved.a1 && boardState[7][1] === "" && boardState[7][2] === "" && boardState[7][3] === ""
+                    && !attackedSquares.some((p) => p.row === 7 && [1,2,3].includes(p.col))
+                ) {
+                    console.log("Grand roque possible !");
+                    ret.push({type: "R", destination: {row:7,col:2}, rookDestination: {row:7,col:3}, rookOrigin: {row:7,col:0}});
+                }
+                // petit roque
+                if (!rookHasMoved.a8 && boardState[7][5] === "" && boardState[7][6] === ""
+                    && !attackedSquares.some((p) => p.row === 7 && [5,6].includes(p.col))) {
+                    console.log("Petit roque possible !");
+                    ret.push({type: "R", destination: {row:7,col:6}, rookDestination: {row:7,col:5}, rookOrigin: {row:7,col:7}});
+                }
+                return ret;
+            }
+        case "♚":
+            if (blackKingHasMoved) {
+                return [];
+            } else {
+                var ret = [];
+                // grand roque
+                if (!rookHasMoved.h1 && boardState[0][1] === "" && boardState[0][2] === "" && boardState[0][3] === ""
+                    && !attackedSquares.some((p) => p.row === 0 && [1,2,3].includes(p.col))
+                ) {
+                    console.log("Grand roque possible !");
+                    ret.push({type: "R", destination: {row:0,col:2}, rookDestination: {row:0,col:3}, rookOrigin: {row:0,col:0}});
+                }
+                // petit roque
+                if (!rookHasMoved.h8 && boardState[0][5] === "" && boardState[0][6] === ""
+                    && !attackedSquares.some((p) => p.row === 0 && [5,6].includes(p.col))) {
+                    console.log("Petit roque possible !");
+                    ret.push({type: "R", destination: {row:0,col:6}, rookDestination: {row:0,col:5}, rookOrigin: {row:0,col:7}});
+                }
+                return ret;
+            }
         default: return [];
     }
     return [];
@@ -336,100 +382,96 @@ function isPinned(row, col, board = boardState) {
         return []; // un roi ne peut pas être cloué
     }
     const pieceOwner = getPieceOwner(piece);
-    kingPosition = null;
-    for (let r = 0; r < 8; r++) {
-        for (c = 0; c < 8; c++) {
-            // recherche du roi (en position [r][c])
-            if (["♔", "♚"].includes(board[r][c]) && pieceOwner === getPieceOwner(board[r][c])) {
-                // si la pièce est dans la même colonne
-                if (c === col) {
-                    if (r < row) {
-                        // check si une pièce entre les deux 
-                        for (i = r + 1; i != row; i++) {
-                            if (board[i][c] != "") {
-                                return [];
-                            }
-                        }
-                        // check si une tour ou reine est présente
-                        for (i = row + 1; i < 8; i++) {
-                            if (board[i][c] === "") {
-                                continue;
-                            } else if (["Q", "R"].includes(getPieceType(board[i][c])) && pieceOwner !== getPieceOwner(board[i][c])) {
-                                console.log("Cloué par : " + board[i][c]);
-                                return Array(i - row + 1).fill().map((_, j) => { return { row: row + j + 1, col: c }; })
-                                    .concat(Array(row - r - 1).fill().map((_, j) => { return { row: r + j + 1, col: c } }));
-                            } else {
-                                break;
-                            }
-                        }
-                    } else {
-                        // check si une pièce entre les deux 
-                        for (i = r - 1; i != row; i--) {
-                            if (board[i][c] != "") {
-                                return [];
-                            }
-                        }
-                        // check si une tour ou reine est présente
-                        for (i = row - 1; i >= 0; i--) {
-                            if (board[i][c] === "") {
-                                continue;
-                            } else if (["Q", "R"].includes(getPieceType(board[i][c])) && pieceOwner !== getPieceOwner(board[i][c])) {
-                                console.log("Cloué par : " + board[i][c]);
-                                return Array(row - i + 1).fill().map((_, j) => { return { row: row - j - 1, col: c }; })
-                                    .concat(Array(r - row - 1).fill().map((_, j) => { return { row: r - j - 1, col: c } }));
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                } else if (r === row) { // même ligne
-                    if (c < col) {
-                        // check si une pièce entre les deux 
-                        for (i = c + 1; i != col; i++) {
-                            if (board[row][i] != "") {
-                                return [];
-                            }
-                        }
-                        // check si une tour ou reine est présente
-                        for (i = col + 1; i < 8; i++) {
-                            if (board[row][i] === "") {
-                                continue;
-                            } else if (["Q", "R"].includes(getPieceType(board[row][i])) && pieceOwner !== getPieceOwner(board[row][i])) {
-                                console.log("Cloué par : " + board[row][i]);
-                                return Array(i - col + 1).fill().map((_, j) => { return { row: row, col: col + j + 1 }; })
-                                    .concat(Array(col - c - 1).fill().map((_, j) => { return { row: row, col: c + j + 1 } }));
-                            } else {
-                                break;
-                            }
-                        }
-                    } else {
-                        // check si une pièce entre les deux 
-                        for (i = c - 1; i != col; i--) {
-                            if (board[row][i] != "") {
-                                return [];
-                            }
-                        }
-                        // check si une tour ou reine est présente
-                        for (i = col - 1; i >= 0; i--) {
-                            if (board[row][i] === "") {
-                                continue;
-                            } else if (["Q", "R"].includes(getPieceType(board[row][i])) && pieceOwner !== getPieceOwner(board[row][i])) {
-                                console.log("Cloué par : " + board[row][i]);
-                                return Array(col - i + 1).fill().map((_, j) => { return { row: row, col: c - j - 1 }; })
-                                    .concat(Array(c - col - 1).fill().map((_, j) => { return { row: row, col: c - j - 1 } }));
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                } else if ((r - c) === (row - col)) { // diag 1
-
-                } else if ((r + c) === (row + col)) { // diag 2
-
+    const kingPosition = pieceOwner === "W" ? whiteKingPos : blackKingPos;
+    const r = kingPosition.row;
+    const c = kingPosition.col;
+    // si la pièce est dans la même colonne
+    if (c === col) {
+        if (r < row) {
+            // check si une pièce entre les deux 
+            for (i = r + 1; i != row; i++) {
+                if (board[i][c] != "") {
+                    return [];
+                }
+            }
+            // check si une tour ou reine est présente
+            for (i = row + 1; i < 8; i++) {
+                if (board[i][c] === "") {
+                    continue;
+                } else if (["Q", "R"].includes(getPieceType(board[i][c])) && pieceOwner !== getPieceOwner(board[i][c])) {
+                    console.log("Cloué par : " + board[i][c]);
+                    return Array(i - row + 1).fill().map((_, j) => { return { row: row + j + 1, col: c }; })
+                        .concat(Array(row - r - 1).fill().map((_, j) => { return { row: r + j + 1, col: c } }));
+                } else {
+                    break;
+                }
+            }
+        } else {
+            // check si une pièce entre les deux 
+            for (i = r - 1; i != row; i--) {
+                if (board[i][c] != "") {
+                    return [];
+                }
+            }
+            // check si une tour ou reine est présente
+            for (i = row - 1; i >= 0; i--) {
+                if (board[i][c] === "") {
+                    continue;
+                } else if (["Q", "R"].includes(getPieceType(board[i][c])) && pieceOwner !== getPieceOwner(board[i][c])) {
+                    console.log("Cloué par : " + board[i][c]);
+                    return Array(row - i + 1).fill().map((_, j) => { return { row: row - j - 1, col: c }; })
+                        .concat(Array(r - row - 1).fill().map((_, j) => { return { row: r - j - 1, col: c } }));
+                } else {
+                    break;
                 }
             }
         }
+    } else if (r === row) { // même ligne
+        if (c < col) {
+            // check si une pièce entre les deux 
+            for (i = c + 1; i != col; i++) {
+                if (board[row][i] != "") {
+                    return [];
+                }
+            }
+            // check si une tour ou reine est présente
+            for (i = col + 1; i < 8; i++) {
+                if (board[row][i] === "") {
+                    continue;
+                } else if (["Q", "R"].includes(getPieceType(board[row][i])) && pieceOwner !== getPieceOwner(board[row][i])) {
+                    console.log("Cloué par : " + board[row][i]);
+                    return Array(i - col + 1).fill().map((_, j) => { return { row: row, col: col + j + 1 }; })
+                        .concat(Array(col - c - 1).fill().map((_, j) => { return { row: row, col: c + j + 1 } }));
+                } else {
+                    break;
+                }
+            }
+        } else {
+            // check si une pièce entre les deux 
+            for (i = c - 1; i != col; i--) {
+                if (board[row][i] != "") {
+                    return [];
+                }
+            }
+            // check si une tour ou reine est présente
+            for (i = col - 1; i >= 0; i--) {
+                if (board[row][i] === "") {
+                    continue;
+                } else if (["Q", "R"].includes(getPieceType(board[row][i])) && pieceOwner !== getPieceOwner(board[row][i])) {
+                    console.log("Cloué par : " + board[row][i]);
+                    return Array(col - i + 1).fill().map((_, j) => { return { row: row, col: c - j - 1 }; })
+                        .concat(Array(c - col - 1).fill().map((_, j) => { return { row: row, col: c - j - 1 } }));
+                } else {
+                    break;
+                }
+            }
+        }
+    } else if ((r - c) === (row - col)) { // diag 1
+
+    } else if ((r + c) === (row + col)) { // diag 2
+
     }
+
     return [];
 }
 
@@ -481,14 +523,14 @@ function getPieceOwner(piece) {
 }
 
 function addCapturedPiece(piece) {
-  if (!piece || piece === "") return;
+    if (!piece || piece === "") return;
 
-  if (getPieceOwner(piece) === "W") {
-    // pièce blanche mangée → ajoutée chez "captured-white"
-    document.getElementById("captured-white").textContent += piece;
-  } else {
-    document.getElementById("captured-black").textContent += piece;
-  }
+    if (getPieceOwner(piece) === "W") {
+        // pièce blanche mangée → ajoutée chez "captured-white"
+        document.getElementById("captured-white").textContent += piece;
+    } else {
+        document.getElementById("captured-black").textContent += piece;
+    }
 }
 
 function highlightSquares(moves) {
