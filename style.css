@@ -1,53 +1,63 @@
-/* style.css */
+body {
+  display: flex;
+  justify-content: center;   /* centre horizontalement */
+  align-items: center;       /* centre verticalement */
+  height: 100vh;             /* toute la hauteur */
+  margin: 0;
+  background-color: #f0f0f0; /* optionnel */
+}
+
 #chessboard {
-    display: grid;
-    grid-template-columns: 30px repeat(8, 60px);
-    grid-template-rows: repeat(8, 60px) 30px;
-    border: 2px solid black;
-    width: 510px;
-    height: 510px;
-  }
+  display: grid;
+  grid-template-columns: 5% repeat(8, 1fr);   /* première colonne = labels verticaux */
+  grid-template-rows: repeat(8, 1fr) 5%;      /* dernière ligne = labels horizontaux */
+
+  width: 90vw;        /* prend 90% de la largeur écran */
+  max-width: 90vh;    /* mais pas plus que la hauteur */
+  aspect-ratio: 1/1;  /* carré parfait */
   
-  .square {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-  }
+  border: 2px solid black;
+}
 
-  .label {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-family: sans-serif;
-    user-select: none;
-  }
-  
-  .dark {
-    background-color: #789957;
-  }
-  
-  .light {
-    background-color: #eeeed2;
-  }
+.square {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 6vw;      /* adaptatif avec la largeur écran */
+}
 
-  .checked {
-    background-color: red !important;
-  }
+.label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-family: sans-serif;
+  user-select: none;
+  font-size: 2vw;       /* taille adaptative aussi */
+}
 
-  .selected {
-    outline: 3px solid blue;
-    outline-offset: -3px;
-    border-radius: 5px;
-  }
+.dark {
+  background-color: #789957;
+}
 
-  .highlight_dark {
-    background-color: rgba(25, 73, 25, 0.6) !important;
-  }
+.light {
+  background-color: #eeeed2;
+}
 
-  .highlight_light {
-    background-color: rgba(160, 159, 149, 0.6) !important;
-  }
+.checked {
+  background-color: red !important;
+}
+
+.selected {
+  outline: 0.4vw solid blue;
+  outline-offset: -0.4vw;
+  border-radius: 5px;
+}
+
+.highlight_dark {
+  background-color: rgba(25, 73, 25, 0.6) !important;
+}
+
+.highlight_light {
+  background-color: rgba(160, 159, 149, 0.6) !important;
+}
