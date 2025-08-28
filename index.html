@@ -1,13 +1,32 @@
 <!-- index.html -->
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <title>Jeu d'échecs</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-  <div id="chessboard"></div>
+  <div id="game-container">
+    <div id="chessboard"></div>
+    <div id="sidebar">
+
+
+      <div class="captured-container">
+        <div id="captured-black" class="captured-pieces"></div>
+      </div>
+
+      <div id="turn-indicator">C'est aux Blancs de jouer</div>
+
+      <div class="captured-container">
+        <div id="captured-white" class="captured-pieces"></div>
+      </div>
+
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
+
 </html>

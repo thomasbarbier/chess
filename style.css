@@ -1,63 +1,119 @@
-body {
+:root {
+  /* Taille cible de l’échiquier : s’adapte à l’écran, bornée */
+  --board-size: min(92vmin, 720px);
+  /* Taille de la bande de labels (A–H, 1–8) */
+  --label: clamp(16px, 3vmin, 28px);
+}
+
+/* Conteneur général */
+#game-container {
   display: flex;
-  justify-content: center;   /* centre horizontalement */
-  align-items: center;       /* centre verticalement */
-  height: 100vh;             /* toute la hauteur */
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(12px, 2vw, 24px);
+  flex-wrap: wrap;                   /* sur petit écran ça passe en colonne */
+  margin: 0 auto;
+  padding: clamp(8px, 2vw, 24px);
+  max-width: 1200px;                 /* confort sur grands écrans */
+}
+
+body {
   margin: 0;
-  background-color: #f0f0f0; /* optionnel */
+  background: #f0f0f0;
+  font-family: sans-serif;
 }
 
+/* Échiquier + labels (colonne gauche + ligne bas) */
 #chessboard {
+  --size: var(--board-size);
   display: grid;
-  grid-template-columns: 5% repeat(8, 1fr);   /* première colonne = labels verticaux */
-  grid-template-rows: repeat(8, 1fr) 5%;      /* dernière ligne = labels horizontaux */
-
-  width: 90vw;        /* prend 90% de la largeur écran */
-  max-width: 90vh;    /* mais pas plus que la hauteur */
-  aspect-ratio: 1/1;  /* carré parfait */
-  
+  grid-template-columns: var(--label) repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr) var(--label);
+  width: var(--size);
+  height: var(--size);               /* carré garanti */
   border: 2px solid black;
+  background: #fff;
 }
 
+/* Cases */
 .square {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 6vw;      /* adaptatif avec la largeur écran */
+  line-height: 1;
+  user-select: none;
+  /* taille des pièces = proportionnelle à la taille de l’échiquier */
+  font-size: calc(var(--size) / 12);
 }
 
 .label {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-weight: bold;
-  font-family: sans-serif;
+  font-weight: 800;
   user-select: none;
-  font-size: 2vw;       /* taille adaptative aussi */
+  font-size: calc(var(--label) * 0.8);
 }
 
-.dark {
-  background-color: #789957;
-}
+.dark  { background-color: #789957; }
+.light { background-color: #eeeed2; }
 
-.light {
-  background-color: #eeeed2;
-}
-
-.checked {
-  background-color: red !important;
-}
+.checked { background-color: red !important; }
 
 .selected {
-  outline: 0.4vw solid blue;
-  outline-offset: -0.4vw;
-  border-radius: 5px;
+  outline: max(2px, 0.35vmin) solid blue;
+  outline-offset: calc(-1 * max(2px, 0.35vmin));
+  border-radius: 6px;
 }
 
-.highlight_dark {
-  background-color: rgba(25, 73, 25, 0.6) !important;
+.highlight_dark  { background-color: rgba(25, 73, 25, 0.6) !important; }
+.highlight_light { background-color: rgba(160,159,149,0.6) !important; }
+
+/* Sidebar (tour + pièces capturées) */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* espace entre haut / milieu / bas */
+  align-items: center;            /* centre horizontalement */
+  flex: 0 0 clamp(220px, 24vw, 320px);
+  height: var(--board-size);      /* même hauteur que l’échiquier */
+  padding: 1vh 0;
+  box-sizing: border-box;
 }
 
-.highlight_light {
-  background-color: rgba(160, 159, 149, 0.6) !important;
+.captured-container {
+  /* background: #f5f5f5;
+  border: 0.2vw solid #ccc;
+  padding: 1vh 1vw;
+  border-radius: 1vw; */
+  width: 100%;
+  height: 50%;
+}
+#captured-white{
+  align-items: end !important;
+  height: 100% !important;
+}
+
+#turn-indicator {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-weight: bold;
+  text-align: center;
+  margin: 2vh 0;
+}
+.captured-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 3vw;
+}
+
+/* Sur petits écrans : on force une colonne propre et la sidebar prend la largeur */
+@media (max-width: 900px) {
+  #game-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  #sidebar {
+    width: min(92vw, 560px);
+  }
 }
